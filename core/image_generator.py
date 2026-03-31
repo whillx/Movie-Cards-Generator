@@ -51,6 +51,48 @@ def _split_font_name(font_name: str):
     return (' '.join(base) if base else font_name), is_bold, is_italic
 
 
+def _apply_variation(
+    font: ImageFont.FreeTypeFont,
+    bold: bool,
+    italic: bool,
+) -> ImageFont.FreeTypeFont:
+    """
+    For variable fonts: select the appropriate named instance or axis values.
+    Returns the same font object (modified in place) unchanged if the font
+    does not support variations or the requested instance is not found.
+    """
+    if not (bold or italic):
+        return font
+
+    # Try named instances first — more reliable than raw axis values.
+    if bold and italic:
+        names = ['Bold Italic', 'BoldItalic', 'Bold Oblique']
+    elif bold:
+        names = ['Bold', 'SemiBold', 'Black']
+    else:
+        names = ['Italic', 'Oblique']
+
+    for name in names:
+        try:
+            font.set_variation_by_name(name)
+            return font
+        except (ValueError, OSError, AttributeError):
+            pass
+
+    # Fallback to axis values (wght / ital are the two most common axes).
+    try:
+        axes: dict = {}
+        if bold:
+            axes['wght'] = 700
+        if italic:
+            axes['ital'] = 1
+        font.set_variation_by_axes(axes)
+    except (ValueError, OSError, AttributeError):
+        pass
+
+    return font
+
+
 def _load_font(
     font_name: str,
     size: int,
@@ -63,15 +105,25 @@ def _load_font(
     Resolution order:
     1. ImageFont.truetype(font_name) — works when the OS font registry has
        already been initialised (e.g. after any native dialog on Windows).
+       _apply_variation is called so variable fonts select the right instance.
     2. find_font_file(font_name) — file-stem prefix search in system font dirs.
     3. Strip variant keywords from font_name (e.g. "Arial Bold" → base "Arial",
        bold=True) and retry find_font_file with the cleaned base name + flags.
-       This covers the case where step 1 hasn't been warmed up yet.
     4. Pillow built-in default.
+
+    After every successful file load, _apply_variation is called so that
+    variable fonts (single file, multiple weights/styles) select the correct
+    named instance or axis position rather than always loading the default.
     """
+    # Parse variant keywords before any lookup so all steps benefit.
+    base_name, name_bold, name_italic = _split_font_name(font_name)
+    eff_bold   = bold   or name_bold
+    eff_italic = italic or name_italic
+
     # 1. Direct OS/registry lookup
     try:
-        return ImageFont.truetype(font_name, size)
+        font = ImageFont.truetype(font_name, size)
+        return _apply_variation(font, eff_bold, eff_italic)
     except (OSError, IOError):
         pass
 
@@ -79,21 +131,18 @@ def _load_font(
     font_path = find_font_file(font_name, bold=bold, italic=italic)
     if font_path:
         try:
-            return ImageFont.truetype(font_path, size)
+            font = ImageFont.truetype(font_path, size)
+            return _apply_variation(font, eff_bold, eff_italic)
         except (OSError, IOError):
             pass
 
-    # 3. Parse variant keywords out of the name and retry
-    base_name, name_bold, name_italic = _split_font_name(font_name)
-    if base_name != font_name:          # keywords were found and stripped
-        font_path = find_font_file(
-            base_name,
-            bold=bold or name_bold,
-            italic=italic or name_italic,
-        )
+    # 3. Parse variant keywords out of the name and retry with base name + flags
+    if base_name != font_name:
+        font_path = find_font_file(base_name, bold=eff_bold, italic=eff_italic)
         if font_path:
             try:
-                return ImageFont.truetype(font_path, size)
+                font = ImageFont.truetype(font_path, size)
+                return _apply_variation(font, eff_bold, eff_italic)
             except (OSError, IOError):
                 pass
 
