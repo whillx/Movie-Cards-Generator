@@ -1,0 +1,67 @@
+{
+  "config": {
+    "output_dir": "",
+    "frame_rate": "24",
+    "resolution_width": 1920,
+    "resolution_height": 1080,
+    "fade_in": 0.5,
+    "fade_out": 0.5,
+    "override_duration": false,
+    "global_duration": 3.0,
+    "global_gap": 0.5,
+    "primary_text": {
+      "font": "Arial",
+      "size": 60,
+      "color": "#FFFFFF",
+      "x_percent": 50.0,
+      "y_percent": 45.0,
+      "line_height": 10
+    },
+    "secondary_text": {
+      "font": "Arial",
+      "size": 48,
+      "color": "#FFFFFF",
+      "x_percent": 50.0,
+      "y_percent": 57.0,
+      "line_height": 10
+    }
+  },
+  "cards": [
+    {
+      "primary": "Directed by",
+      "secondary": "John Smith",
+      "duration": 4.0,
+      "gap": 1.0
+    },
+    {
+      "primary": "Produced by",
+      "secondary": "Jane Doe & Robert Lee",
+      "duration": 4.0,
+      "gap": 1.0
+    },
+    {
+      "primary": "Screenplay by",
+      "secondary": "Alex Johnson",
+      "duration": 4.0,
+      "gap": 1.0
+    },
+    {
+      "primary": "Director of Photography",
+      "secondary": "Michael Chen",
+      "duration": 4.0,
+      "gap": 1.5
+    },
+    {
+      "primary": "Original Music by",
+      "secondary": "Sarah Williams",
+      "duration": 4.0,
+      "gap": 0.5
+    },
+    {
+      "primary": "A STELLAR FILMS PRODUCTION",
+      "secondary": "",
+      "duration": 5.0,
+      "gap": 0.0
+    }
+  ]
+}

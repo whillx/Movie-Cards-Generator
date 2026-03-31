@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.10">
+    <resources>
+        <format frameDuration="1/24s" width="1920" id="r0" name="FFVideoFormat1080p24" height="1080"/>
+        <format width="1920" id="r2" name="FFVideoFormatRateUndefined" height="1080"/>
+        <effect id="r1" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265"/>
+        <asset duration="0/1s" start="0/1s" id="r3" name="card_aaa.png" format="r2" hasVideo="1">
+            <media-rep src="file://localhost/C:/Users/wills/Desktop/out/cards/card_aaa.png" kind="original-media"/>
+        </asset>
+        <asset duration="0/1s" start="0/1s" id="r4" name="card_aaa.png" format="r2" hasVideo="1">
+            <media-rep src="file://localhost/C:/Users/wills/Desktop/out/cards/card_aaa.png" kind="original-media"/>
+        </asset>
+    </resources>
+    <library>
+        <event name="Movie Cards (Resolve)">
+            <project name="Movie Cards (Resolve)">
+                <sequence tcStart="0/1s" tcFormat="NDF" duration="217/24s" format="r0">
+                    <spine>
+                        <transition duration="1/1s" name="Cross Dissolve" offset="0/1s">
+                            <filter-video name="Cross Dissolve" ref="r1">
+                                <param value="-1" key="50" name="ease"/>
+                            </filter-video>
+                        </transition>
+                        <video enabled="1" duration="3/1s" start="1/2s" name="card_aaa.png" ref="r3" offset="1/2s">
+                            <adjust-conform type="fit"/>
+                            <adjust-transform scale="1 1" anchor="0 0" position="0 0"/>
+                        </video>
+                        <transition duration="1/1s" name="Cross Dissolve" offset="3/1s">
+                            <filter-video name="Cross Dissolve" ref="r1">
+                                <param value="-1" key="50" name="ease"/>
+                            </filter-video>
+                        </transition>
+                        <gap duration="1/2s" start="3600/1s" name="Gap" offset="7/2s"/>
+                        <gap duration="37/24s" start="3600/1s" name="Gap" offset="4/1s"/>
+                        <transition duration="1/1s" name="Cross Dissolve" offset="121/24s">
+                            <filter-video name="Cross Dissolve" ref="r1">
+                                <param value="-1" key="50" name="ease"/>
+                            </filter-video>
+                        </transition>
+                        <video enabled="1" duration="3/1s" start="1/2s" name="card_aaa.png" ref="r4" offset="133/24s">
+                            <adjust-conform type="fit"/>
+                            <adjust-transform scale="1 1" anchor="0 0" position="0 0"/>
+                        </video>
+                        <transition duration="1/1s" name="Cross Dissolve" offset="193/24s">
+                            <filter-video name="Cross Dissolve" ref="r1">
+                                <param value="-1" key="50" name="ease"/>
+                            </filter-video>
+                        </transition>
+                        <gap duration="1/2s" start="3600/1s" name="Gap" offset="205/24s"/>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
