@@ -3,18 +3,23 @@ FCPXML generator using Cross Dissolve transitions for fade-in / fade-out,
 matching the structure used by Final Cut Pro.
 
 Spine layout for each card (fi=fade_in, fo=fade_out, D=duration, G=gap):
+
+  fi and fo are counted as part of D: the card occupies exactly D seconds on
+  the timeline from the first frame of the fade-in to the last frame of the
+  fade-out.  The gap G that follows is purely black — no image is visible.
+
   Given T = start offset of this card's fade-in transition:
 
-  1. <transition offset=T          dur=fi>      ← fade in  (skipped when fi=0)
-  2. <video      offset=T+fi/2     dur=D  start=fi/2>
-  3. <transition offset=T+fi/2+D-fo/2 dur=fo>  ← fade out (skipped when fo=0)
-  4. <gap        offset=T+fi/2+D   dur=fo/2>    ← structural tail of fade-out
-  5. <gap        offset=T+fi/2+D+fo/2 dur=G>    ← actual blank gap (skipped when G=0)
+  1. <transition offset=T            dur=fi>             ← fade in  (skipped when fi=0)
+  2. <video      offset=T+fi/2       dur=D-fi/2-fo/2     start=fi/2>
+  3. <transition offset=T+D-fo       dur=fo>             ← fade out (skipped when fo=0)
+  4. <gap        offset=T+D-fo/2     dur=fo/2>           ← structural tail of fade-out
+  5. <gap        offset=T+D          dur=G>              ← actual blank gap (skipped when G=0)
 
-  block_end  = T + fi/2 + D + fo/2 + G
-  T_next     = block_end - fi_next/2   (transitions overlap with adjacent elements)
+  block_end  = T + D + G
+  T_next     = block_end - fi_next/2   (fade-in of next card overlaps tail of gap)
 
-  Total sequence duration = fi/2 + Σ(D_i + fo/2 + G_i)
+  Total sequence duration = Σ(D_i + G_i) - (N-1) * fi/2
 """
 
 import os
@@ -132,8 +137,11 @@ def generate_fcpxml(
         for c in cards
     ]
 
-    # Total sequence duration = fi/2 + Σ(D_i + fo/2 + G_i)
-    total_dur = fi / 2 + sum(d + fo / 2 + g for d, g in zip(durations, gaps))
+    # Total sequence duration = Σ(D_i + G_i) - (N-1) * fi/2
+    n = len(cards)
+    total_dur = sum(d + g for d, g in zip(durations, gaps))
+    if n > 1:
+        total_dur -= (n - 1) * fi / 2
 
     fd_str = f"{fd.numerator}/{fd.denominator}s"
 
@@ -178,33 +186,37 @@ def generate_fcpxml(
         aid = asset_ids[i]
         name = f"card_{index_to_alpha(i)}.png"
 
-        # Transition offset for this card:
-        # First card always starts at 0; subsequent cards overlap the previous block_end by fi/2.
-        T = Fraction(0) if i == 0 else block_end - fi / 2
+        # First card starts at 0; each subsequent card's fade-in overlaps
+        # the tail of the previous block by fi/2.
+        T = Fraction(0) if i == 0 else block_end
 
-        video_offset = T + fi / 2        # where the video clip sits on the timeline
-        video_end    = video_offset + d  # where the video clip ends
+        # The video element is shrunk by fi/2 at the front and fo/2 at the back
+        # so that the total envelope (fade-in start → fade-out end) = D exactly.
+        video_offset = T + fi / 2
+        video_dur    = d - fi / 2 - fo / 2
+        video_end    = video_offset + video_dur   # = T + d - fo/2
 
         # ── Fade-in transition ──────────────────────────────────────────────
         if fi > 0:
             lines += _transition(T, fi)
 
         # ── Video clip ─────────────────────────────────────────────────────
-        # start=fi/2 gives the transition handle (media offset borrowed by fade-in)
-        lines += _video(video_offset, d, fi / 2, name, aid)
+        # start=fi/2 provides the media handle borrowed by the fade-in.
+        lines += _video(video_offset, video_dur, fi / 2, name, aid)
 
         # ── Fade-out transition ─────────────────────────────────────────────
         if fo > 0:
-            fo_trans_offset = video_end - fo / 2
+            fo_trans_offset = video_end - fo / 2  # = T + d - fo
             lines += _transition(fo_trans_offset, fo)
-            # Structural gap: fills the tail of the fade-out after the video ends
+            # Structural gap: fills the spine from video end to fade-out completion
             lines.append(_gap(video_end, fo / 2))
 
-        # ── Actual blank gap after the card ────────────────────────────────
+        # ── Actual blank gap after the card (image-free) ───────────────────
+        # Starts at T+D (fade-out has fully completed); no card image present.
         if g > 0:
-            lines.append(_gap(video_end + fo / 2, g))
+            lines.append(_gap(T + d, g))
 
-        block_end = video_end + fo / 2 + g
+        block_end = T + d + g
 
     lines += [
         '                    </spine>',
