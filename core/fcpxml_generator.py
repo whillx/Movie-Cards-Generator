@@ -118,6 +118,7 @@ def generate_fcpxml(
     image_paths: List[str],
     config: SessionConfig,
     output_dir: str,
+    name_prefix: str = "card",
 ) -> str:
     fr  = config.frame_rate
     fd  = FRAME_DURATIONS.get(fr, Fraction(1, 24))
@@ -159,7 +160,7 @@ def generate_fcpxml(
     asset_ids = []
     for i, (card, img_path) in enumerate(zip(cards, image_paths)):
         aid  = f"r{FIRST_ASSET_NUM + i}"
-        name = f"card_{index_to_alpha(i)}.png"
+        name = f"{name_prefix}_{index_to_alpha(i)}.png"
         src  = _file_url(img_path)
         asset_ids.append(aid)
         lines += [
@@ -184,7 +185,7 @@ def generate_fcpxml(
         d   = durations[i]
         g   = gaps[i]
         aid = asset_ids[i]
-        name = f"card_{index_to_alpha(i)}.png"
+        name = f"{name_prefix}_{index_to_alpha(i)}.png"
 
         # First card starts at 0; each subsequent card's fade-in overlaps
         # the tail of the previous block by fi/2.

@@ -188,29 +188,39 @@ class App:
         if not self.cards_panel.get_cards():
             messagebox.showwarning("No Cards", "Please load a session file first.")
             return
+        session_path = self._session_path.get().strip()
+        if not session_path:
+            messagebox.showwarning(
+                "No Session File",
+                "Please save the session file first before generating.\n\n"
+                "Use the Save button in the Cards panel to choose a location.",
+            )
+            return
         output_dir = self._output_dir.get().strip()
         if not output_dir:
             messagebox.showwarning("No Output Dir", "Please select an output directory.")
             return
 
+        name_prefix = os.path.splitext(os.path.basename(session_path))[0]
         config = self._build_config()
         self._generate_btn.configure(state='disabled')
         self._progress.start()
         self._status.set("Generating…")
 
         thread = threading.Thread(
-            target=self._run_generation, args=(config,), daemon=True)
+            target=self._run_generation, args=(config, session_path, name_prefix),
+            daemon=True)
         thread.start()
 
-    def _run_generation(self, config: SessionConfig):
+    def _run_generation(self, config: SessionConfig, session_path: str, name_prefix: str):
         try:
             cards = self.cards_panel.get_cards()
-            image_paths = generate_images(cards, config, config.output_dir)
-            fcpxml_path = generate_fcpxml(cards, image_paths, config, config.output_dir)
+            image_paths = generate_images(cards, config, config.output_dir,
+                                          name_prefix=name_prefix)
+            fcpxml_path = generate_fcpxml(cards, image_paths, config, config.output_dir,
+                                          name_prefix=name_prefix)
             # Persist the session file (updates saved output_dir too)
-            session_path = self._session_path.get().strip()
-            if session_path:
-                save_session(cards, config, session_path)
+            save_session(cards, config, session_path)
             self.root.after(0, self._on_done, len(image_paths), fcpxml_path)
         except Exception as e:
             self.root.after(0, self._on_error, str(e))

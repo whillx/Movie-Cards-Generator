@@ -337,8 +337,12 @@ def generate_images(
     cards: List[Card],
     config: SessionConfig,
     output_dir: str,
+    name_prefix: str = "card",
 ) -> List[str]:
-    """Render each card as a transparent PNG and return a list of file paths."""
+    """Render each card as a transparent PNG and return a list of file paths.
+
+    Images are named <name_prefix>_aaa.png, <name_prefix>_aab.png, etc.
+    """
     cards_dir = os.path.join(output_dir, 'cards')
     os.makedirs(cards_dir, exist_ok=True)
 
@@ -351,7 +355,7 @@ def generate_images(
         draw = ImageDraw.Draw(img)
         _draw_block(draw, card, config, width, height)
 
-        filepath = os.path.join(cards_dir, f"card_{index_to_alpha(i)}.png")
+        filepath = os.path.join(cards_dir, f"{name_prefix}_{index_to_alpha(i)}.png")
         img.save(filepath, 'PNG')
         paths.append(filepath)
 
