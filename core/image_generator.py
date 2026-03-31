@@ -55,18 +55,8 @@ def _apply_variation(
         try:
             font.set_variation_by_name(name)
             return font
-        except (ValueError, OSError, AttributeError):
+        except (ValueError, OSError, AttributeError, TypeError):
             pass
-
-    try:
-        axes: dict = {}
-        if bold:
-            axes['wght'] = 700
-        if italic:
-            axes['ital'] = 1
-        font.set_variation_by_axes(axes)
-    except (ValueError, OSError, AttributeError):
-        pass
 
     return font
 
