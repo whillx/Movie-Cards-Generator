@@ -205,7 +205,9 @@ class _Run:
     font:   ImageFont.FreeTypeFont
     color:  Tuple[int, int, int, int]
     width:  int
-    height: int
+    height: int   # pixel height  = bbox[3] - bbox[1]
+    top:    int   # pixel top offset from draw origin = bbox[1]
+                  # Draw y must be adjusted by -top so that y_top == first pixel row.
 
 
 def _make_run(
@@ -216,10 +218,12 @@ def _make_run(
 ) -> _Run:
     font  = _load_font(cfg.font, cfg.size, bold=seg.bold, italic=seg.italic)
     color = _hex_to_rgba(seg.color) if seg.color else default_color
-    # Use a temporary draw surface to measure
     tmp   = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
     bbox  = tmp.textbbox((0, 0), seg_text, font=font)
-    return _Run(seg_text, font, color, bbox[2] - bbox[0], bbox[3] - bbox[1])
+    return _Run(seg_text, font, color,
+                width=bbox[2] - bbox[0],
+                height=bbox[3] - bbox[1],
+                top=bbox[1])
 
 
 def _render_segments(
@@ -268,15 +272,19 @@ def _render_segments(
             for t, seg in line_parts
         ]
 
-        line_w    = sum(r.width  for r in runs)
-        line_h    = max(r.height for r in runs)
-        x         = x_center - line_w / 2
-        baseline  = y
+        line_w = sum(r.width  for r in runs)
+        line_h = max(r.height for r in runs)
+        x      = x_center - line_w / 2
 
         for run in runs:
-            # Vertically align each run to the bottom of the tallest run
+            # Bottom-align within the line AND cancel out the font's top
+            # offset so that `y` always maps to the first pixel row.
+            # draw_y + run.top = y + line_h - run.height
+            # → pixels span  [y + line_h - run.height,  y + line_h]
+            # → tallest run:  pixels start at y  (line top)
+            # → shorter runs: pixels start lower (bottom-aligned)
             draw.text(
-                (x, baseline + (line_h - run.height)),
+                (x, y + line_h - run.height - run.top),
                 run.text,
                 font=run.font,
                 fill=run.color,
