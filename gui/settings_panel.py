@@ -12,9 +12,10 @@ RESOLUTION_PRESETS = ["1920x1080", "3840x2160", "1280x720", "2048x1080", "4096x2
 class SettingsPanel(ttk.Notebook):
     """
     A tabbed settings panel with three tabs:
-      - General        : frame rate, resolution, fade in/out, duration override
-      - Primary Text   : font, size, color, line height, position
-      - Secondary Text : font, size, color, line height, position
+      - General        : frame rate, resolution, fade in/out, duration override,
+                         text block position and spacing
+      - Primary Text   : font, size, color, line height
+      - Secondary Text : font, size, color, line height
     """
 
     def __init__(
@@ -31,8 +32,8 @@ class SettingsPanel(ttk.Notebook):
         self._secondary_vars: dict = {}
 
         self._build_general_tab()
-        self._build_text_tab("Primary Text",   self._primary_vars,   default_y=45.0)
-        self._build_text_tab("Secondary Text", self._secondary_vars, default_y=57.0)
+        self._build_text_tab("Primary Text",   self._primary_vars,   default_size=60)
+        self._build_text_tab("Secondary Text", self._secondary_vars, default_size=48)
 
     # ------------------------------------------------------------------
     # Tab builders
@@ -52,6 +53,9 @@ class SettingsPanel(ttk.Notebook):
         v['override_duration'] = tk.BooleanVar(value=False)
         v['global_duration']   = tk.DoubleVar(value=3.0)
         v['global_gap']        = tk.DoubleVar(value=0.5)
+        v['block_x_percent']   = tk.DoubleVar(value=50.0)
+        v['block_y_percent']   = tk.DoubleVar(value=50.0)
+        v['block_spacing']     = tk.IntVar(value=20)
 
         row = 0
 
@@ -127,25 +131,50 @@ class SettingsPanel(ttk.Notebook):
             from_=0.1, to=120.0, increment=0.5, width=7,
         ).grid(row=row, column=1, sticky='w', pady=4)
 
-        ttk.Label(frame, text="Global Gap (s):").grid(row=row, column=2, sticky='w', pady=4, padx=(12, 0))
+        ttk.Label(frame, text="Global Gap (s):").grid(
+            row=row, column=2, sticky='w', pady=4, padx=(12, 0))
         ttk.Spinbox(
             frame, textvariable=v['global_gap'],
             from_=0.0, to=60.0, increment=0.5, width=7,
         ).grid(row=row, column=3, sticky='w', pady=4)
+        row += 1
+
+        ttk.Separator(frame, orient='horizontal').grid(
+            row=row, column=0, columnspan=4, sticky='ew', pady=6)
+        row += 1
+
+        # Text block position
+        ttk.Label(frame, text="Text Block X (%):").grid(row=row, column=0, sticky='w', pady=4)
+        ttk.Spinbox(
+            frame, textvariable=v['block_x_percent'],
+            from_=0.0, to=100.0, increment=1.0, width=7,
+        ).grid(row=row, column=1, sticky='w', pady=4)
+
+        ttk.Label(frame, text="Text Block Y (%):").grid(
+            row=row, column=2, sticky='w', pady=4, padx=(12, 0))
+        ttk.Spinbox(
+            frame, textvariable=v['block_y_percent'],
+            from_=0.0, to=100.0, increment=1.0, width=7,
+        ).grid(row=row, column=3, sticky='w', pady=4)
+        row += 1
+
+        ttk.Label(frame, text="Text Spacing (px):").grid(row=row, column=0, sticky='w', pady=4)
+        ttk.Spinbox(
+            frame, textvariable=v['block_spacing'],
+            from_=0, to=500, increment=1, width=7,
+        ).grid(row=row, column=1, sticky='w', pady=4)
 
         frame.columnconfigure(1, weight=1)
 
-    def _build_text_tab(self, label: str, v: dict, default_y: float):
+    def _build_text_tab(self, label: str, v: dict, default_size: int):
         frame = ttk.Frame(self, padding=12)
         self.add(frame, text=label)
 
         fonts = sorted(tkfont.families())
         v['font']        = tk.StringVar(value="Arial")
-        v['size']        = tk.IntVar(value=60 if label == "Primary Text" else 48)
+        v['size']        = tk.IntVar(value=default_size)
         v['color']       = tk.StringVar(value="#FFFFFF")
         v['line_height'] = tk.IntVar(value=10)
-        v['x_percent']   = tk.DoubleVar(value=50.0)
-        v['y_percent']   = tk.DoubleVar(value=default_y)
 
         row = 0
 
@@ -174,7 +203,7 @@ class SettingsPanel(ttk.Notebook):
 
         swatch = tk.Label(color_row, width=3, relief='solid', bg=v['color'].get())
         swatch.pack(side='left', padx=(0, 6))
-        v['_color_swatch'] = swatch  # keep reference for apply_config
+        v['_color_swatch'] = swatch
 
         def pick_color(var=v['color'], sw=swatch):
             result = colorchooser.askcolor(color=var.get(), title=f"Pick {label} Color")
@@ -183,25 +212,6 @@ class SettingsPanel(ttk.Notebook):
                 sw.configure(bg=result[1])
 
         ttk.Button(color_row, text="Choose…", command=pick_color).pack(side='left')
-        row += 1
-
-        ttk.Separator(frame, orient='horizontal').grid(
-            row=row, column=0, columnspan=3, sticky='ew', pady=8)
-        row += 1
-
-        # X / Y position as percentage of image dimensions
-        ttk.Label(frame, text="Position X (%):").grid(row=row, column=0, sticky='w', pady=4)
-        ttk.Spinbox(
-            frame, textvariable=v['x_percent'], from_=0.0, to=100.0,
-            increment=1.0, width=8,
-        ).grid(row=row, column=1, sticky='w', pady=4)
-        row += 1
-
-        ttk.Label(frame, text="Position Y (%):").grid(row=row, column=0, sticky='w', pady=4)
-        ttk.Spinbox(
-            frame, textvariable=v['y_percent'], from_=0.0, to=100.0,
-            increment=1.0, width=8,
-        ).grid(row=row, column=1, sticky='w', pady=4)
 
         frame.columnconfigure(1, weight=1)
 
@@ -246,21 +256,20 @@ class SettingsPanel(ttk.Notebook):
             'override_duration': gv['override_duration'].get(),
             'global_duration':   gv['global_duration'].get(),
             'global_gap':        gv['global_gap'].get(),
+            'block_x_percent':   gv['block_x_percent'].get(),
+            'block_y_percent':   gv['block_y_percent'].get(),
+            'block_spacing':     gv['block_spacing'].get(),
             'primary_text': TextConfig(
                 font=pv['font'].get(),
                 size=pv['size'].get(),
                 color=pv['color'].get(),
                 line_height=pv['line_height'].get(),
-                x_percent=pv['x_percent'].get(),
-                y_percent=pv['y_percent'].get(),
             ),
             'secondary_text': TextConfig(
                 font=sv['font'].get(),
                 size=sv['size'].get(),
                 color=sv['color'].get(),
                 line_height=sv['line_height'].get(),
-                x_percent=sv['x_percent'].get(),
-                y_percent=sv['y_percent'].get(),
             ),
         }
 
@@ -277,6 +286,9 @@ class SettingsPanel(ttk.Notebook):
         gv['override_duration'].set(config.override_duration)
         gv['global_duration'].set(config.global_duration)
         gv['global_gap'].set(config.global_gap)
+        gv['block_x_percent'].set(config.block_x_percent)
+        gv['block_y_percent'].set(config.block_y_percent)
+        gv['block_spacing'].set(config.block_spacing)
 
         for v, tc in [
             (self._primary_vars,   config.primary_text),
@@ -286,7 +298,5 @@ class SettingsPanel(ttk.Notebook):
             v['size'].set(tc.size)
             v['color'].set(tc.color)
             v['line_height'].set(tc.line_height)
-            v['x_percent'].set(tc.x_percent)
-            v['y_percent'].set(tc.y_percent)
             if '_color_swatch' in v:
                 v['_color_swatch'].configure(bg=tc.color)

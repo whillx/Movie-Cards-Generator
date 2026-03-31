@@ -28,7 +28,9 @@ All GUI settings:
 - `fade_in` / `fade_out` — Cross Dissolve transition duration in seconds.
 - `override_duration` — boolean; when true, global duration/gap override per-card values during generation.
 - `global_duration` / `global_gap` — global override values in seconds.
-- `primary_text` / `secondary_text` — text layer settings (font, size, color, x_percent, y_percent, line_height).
+- `block_x_percent` / `block_y_percent` — position of the combined text block centre as a percentage of image width/height.
+- `block_spacing` — gap in pixels between the primary and secondary text within the block.
+- `primary_text` / `secondary_text` — text layer settings (font, size, color, line_height).
 
 ### `cards`
 Array of card objects, each with four fields:
@@ -82,11 +84,29 @@ gui/
 - **Override all durations** checkbox — when checked, the global duration and global gap values are used for every card during generation (per-card JSON values are ignored).
 - **Global Duration / Global Gap** spinboxes — always editable regardless of the checkbox.
 - **Apply to All** button — stamps the current global duration and global gap onto every card in memory and saves to the session file immediately, allowing individual cards to be adjusted afterwards.
+- **Text Block X / Y (%)** — position of the centre of the combined primary+secondary text block, as a percentage of the image width/height. Both texts move together as one unit.
+- **Text Spacing (px)** — vertical gap in pixels between the bottom of the primary text and the top of the secondary text within the block.
 
 ## GUI — Primary Text / Secondary Text tabs
 Both text layers share the same set of controls:
 - **Font** — system font family picker (uses tkinter font families).
 - **Size (px)** — font size in pixels.
-- **Line Height (px)** — extra pixel spacing between lines when text contains line breaks (`\n`).
-- **Color** — color swatch + picker dialog.
-- **Position X / Y (%)** — position of the text anchor as a percentage of the image width / height; text is centred on that point.
+- **Line Height (px)** — extra pixel spacing between lines when text contains line breaks.
+- **Color** — color swatch + picker dialog; can be overridden inline with `[color=#rrggbb]`.
+
+## BBCode & newlines in card text
+The `primary` and `secondary` fields support inline formatting:
+
+| Syntax | Effect |
+|---|---|
+| `\n` | Line break |
+| `[b]...[/b]` | Bold |
+| `[i]...[/i]` | Italic |
+| `[bi]...[/bi]` | Bold + italic |
+| `[b][i]...[/i][/b]` | Bold + italic (nested) |
+| `[color=#FF8800]...[/color]` | Colour override (hex) |
+
+Tags can be nested freely. Unrecognised tags are passed through as literal text.
+Bold/italic variants are resolved by searching for font files whose name contains
+keywords such as `bold`, `bd`, `italic`, `it`, etc. If no variant file is found,
+the regular face is used as a fallback.
