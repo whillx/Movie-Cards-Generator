@@ -219,11 +219,16 @@ def _make_run(
     font  = _load_font(cfg.font, cfg.size, bold=seg.bold, italic=seg.italic)
     color = _hex_to_rgba(seg.color) if seg.color else default_color
     tmp   = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
-    bbox  = tmp.textbbox((0, 0), seg_text, font=font)
+    # Width from the actual text so spacing is correct.
+    # Height from font metrics (ascent + descent) so every run shares the
+    # same line height regardless of which characters appear — "are" and
+    # "let" are different heights in textbbox but identical in getmetrics().
+    w_bbox   = tmp.textbbox((0, 0), seg_text, font=font)
+    ascent, descent = font.getmetrics()
     return _Run(seg_text, font, color,
-                width=bbox[2] - bbox[0],
-                height=bbox[3] - bbox[1],
-                top=bbox[1])
+                width=w_bbox[2] - w_bbox[0],
+                height=ascent + descent,
+                top=0)
 
 
 def _render_segments(
@@ -330,9 +335,10 @@ def _measure_segments(raw: str, cfg: TextConfig) -> Tuple[int, int]:
         line_h = 0
         for t, seg in line_parts:
             font = _load_font(cfg.font, cfg.size, bold=seg.bold, italic=seg.italic)
-            bbox = tmp.textbbox((0, 0), t, font=font)
-            line_w += bbox[2] - bbox[0]
-            line_h  = max(line_h, bbox[3] - bbox[1])
+            w_bbox = tmp.textbbox((0, 0), t, font=font)
+            ascent, descent = font.getmetrics()
+            line_w += w_bbox[2] - w_bbox[0]
+            line_h  = max(line_h, ascent + descent)
 
         max_w    = max(max_w, line_w)
         total_h += line_h
