@@ -4,7 +4,7 @@ A desktop tool for creating professional title cards for film productions — cr
 
 >GUI for cards creation:
 >
-![demo image](image/ui.png)
+![UI image](image/UI.png)
 
 >Generated card image and the timeline in the editing software (Resolve):
 >
