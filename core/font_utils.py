@@ -1,11 +1,30 @@
+"""
+Font discovery for Movie Cards Generator.
+
+Builds a lookup table by reading the metadata embedded in every font file
+(the OpenType 'name' table), so font families and styles are matched by
+their actual names rather than by filename heuristics.
+
+The map is built once on first use and cached for the lifetime of the process.
+"""
+
 import os
 import sys
-from typing import List, Optional
+from typing import Dict, List, Optional
+
+from PIL import ImageFont
+
+
+# { family_lower: { style_lower: absolute_file_path } }
+_FontStyles = Dict[str, str]
+_FontMap    = Dict[str, _FontStyles]
+
+_font_map: Optional[_FontMap] = None
 
 
 def _get_system_font_dirs() -> List[str]:
     if sys.platform == 'win32':
-        windir = os.environ.get('WINDIR', 'C:\\Windows')
+        windir      = os.environ.get('WINDIR', 'C:\\Windows')
         localappdata = os.environ.get('LOCALAPPDATA', '')
         dirs = [os.path.join(windir, 'Fonts')]
         if localappdata:
@@ -25,77 +44,78 @@ def _get_system_font_dirs() -> List[str]:
         ]
 
 
-def find_font_file(
-    font_name: str,
-    bold: bool = False,
-    italic: bool = False,
-) -> Optional[str]:
+def _build_font_map() -> _FontMap:
     """
-    Try to find a TTF/OTF file matching the given font family name.
+    Scan every TTF/OTF file in the system font directories and read
+    (family, style) directly from the font's own metadata.
 
-    When bold and/or italic are requested the search prefers files whose stem
-    contains the relevant keyword(s) (e.g. 'arialbd.ttf', 'ariali.ttf',
-    'arialbi.ttf').  Falls back to the regular face if no variant is found.
+    The resulting map is: { family_lower: { style_lower: filepath } }
+    If two files claim the same family+style the first one wins.
     """
-    clean = font_name.lower().replace(' ', '').replace('-', '')
-
-    # Keywords that indicate each variant in a font filename stem
-    BOLD_KEYWORDS   = ('bold', 'bd', 'b')
-    ITALIC_KEYWORDS = ('italic', 'oblique', 'it', 'i')
-
-    best_regular: Optional[str] = None
-    best_variant: Optional[str] = None
-
-    for fonts_dir in _get_system_font_dirs():
-        if not os.path.isdir(fonts_dir):
-            continue
-        for fname in os.listdir(fonts_dir):
-            ext = os.path.splitext(fname)[1].lower()
-            if ext not in ('.ttf', '.otf'):
-                continue
-            stem = os.path.splitext(fname)[0].lower().replace(' ', '').replace('-', '')
-            if not (stem == clean or stem.startswith(clean)):
-                continue
-
-            full_path = os.path.join(fonts_dir, fname)
-            suffix = stem[len(clean):]  # the part after the family name
-
-            has_bold   = any(kw in suffix for kw in BOLD_KEYWORDS)
-            has_italic = any(kw in suffix for kw in ITALIC_KEYWORDS)
-
-            if bold and italic:
-                if has_bold and has_italic:
-                    best_variant = full_path
-                    break
-            elif bold:
-                if has_bold and not has_italic:
-                    best_variant = full_path
-                    break
-            elif italic:
-                if has_italic and not has_bold:
-                    best_variant = full_path
-                    break
-            else:
-                # Regular: prefer the shortest stem (closest exact match)
-                if best_regular is None or len(stem) < len(
-                    os.path.splitext(os.path.basename(best_regular))[0]
-                ):
-                    best_regular = full_path
-
-    if (bold or italic) and best_variant:
-        return best_variant
-    if best_regular:
-        return best_regular
-    return None
-
-
-def get_available_font_names() -> List[str]:
-    """Return font filenames (without extension) from the system fonts directory."""
-    names = []
+    font_map: _FontMap = {}
     for fonts_dir in _get_system_font_dirs():
         if not os.path.isdir(fonts_dir):
             continue
         for fname in sorted(os.listdir(fonts_dir)):
-            if os.path.splitext(fname)[1].lower() in ('.ttf', '.otf'):
-                names.append(os.path.splitext(fname)[0])
-    return names
+            if os.path.splitext(fname)[1].lower() not in ('.ttf', '.otf'):
+                continue
+            path = os.path.join(fonts_dir, fname)
+            try:
+                family, style = ImageFont.truetype(path, 10).getname()
+                fk = family.lower()
+                sk = style.lower()
+                font_map.setdefault(fk, {}).setdefault(sk, path)
+            except Exception:
+                continue
+    return font_map
+
+
+def _get_font_map() -> _FontMap:
+    global _font_map
+    if _font_map is None:
+        _font_map = _build_font_map()
+    return _font_map
+
+
+def find_font_file(
+    family: str,
+    bold: bool = False,
+    italic: bool = False,
+) -> Optional[str]:
+    """
+    Return the path of the best-matching font file for the given family name
+    and variant flags.  Matching is done against font metadata, not filenames.
+
+    If no exact style is found but the family exists, the first available
+    style is returned so that _apply_variation() can select the correct
+    weight/style on variable fonts.
+
+    Returns None if the family is not found at all.
+    """
+    font_map = _get_font_map()
+    styles   = font_map.get(family.strip().lower())
+    if not styles:
+        return None
+
+    # Preferred style names in priority order
+    if bold and italic:
+        want = ['bold italic', 'bolditalic', 'bold oblique']
+    elif bold:
+        want = ['bold', 'semibold', 'demibold', 'extrabold', 'black', 'heavy']
+    elif italic:
+        want = ['italic', 'oblique']
+    else:
+        want = ['regular', 'normal', '']
+
+    for w in want:
+        if w in styles:
+            return styles[w]
+
+    # No exact style match — return whatever is available and let
+    # _apply_variation select the right instance (handles variable fonts).
+    return next(iter(styles.values()))
+
+
+def get_available_font_names() -> List[str]:
+    """Return a sorted list of font family names available on this system."""
+    return sorted(_get_font_map().keys())

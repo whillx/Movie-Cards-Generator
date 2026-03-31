@@ -26,29 +26,10 @@ from core.utils import index_to_alpha
 
 # ── Font loading ──────────────────────────────────────────────────────────────
 
-# Variant keywords that may appear inside a font family name as listed by
-# tkinter's font.families() (e.g. "Arial Bold", "Times New Roman Italic").
-_BOLD_KEYWORDS   = {'bold', 'black', 'heavy', 'extrabold', 'demibold', 'semibold'}
-_ITALIC_KEYWORDS = {'italic', 'oblique', 'slanted'}
-
-
-def _split_font_name(font_name: str):
-    """
-    Split a font family name into (base_name, bold, italic).
-
-    e.g. "Arial Bold Italic" → ("Arial", True, True)
-         "Arial"             → ("Arial", False, False)
-    """
-    words, base, is_bold, is_italic = font_name.split(), [], False, False
-    for w in words:
-        wl = w.lower()
-        if wl in _BOLD_KEYWORDS:
-            is_bold = True
-        elif wl in _ITALIC_KEYWORDS:
-            is_italic = True
-        else:
-            base.append(w)
-    return (' '.join(base) if base else font_name), is_bold, is_italic
+# Variant keywords that may appear in font family names from the tkinter picker
+# (e.g. "Arial Bold", "Times New Roman Italic").
+_BOLD_WORDS   = {'bold', 'black', 'heavy', 'extrabold', 'demibold', 'semibold'}
+_ITALIC_WORDS = {'italic', 'oblique', 'slanted'}
 
 
 def _apply_variation(
@@ -57,14 +38,12 @@ def _apply_variation(
     italic: bool,
 ) -> ImageFont.FreeTypeFont:
     """
-    For variable fonts: select the appropriate named instance or axis values.
-    Returns the same font object (modified in place) unchanged if the font
-    does not support variations or the requested instance is not found.
+    For variable fonts: select the named instance or axis values that match
+    the requested bold/italic flags.  Non-variable fonts are returned unchanged.
     """
     if not (bold or italic):
         return font
 
-    # Try named instances first — more reliable than raw axis values.
     if bold and italic:
         names = ['Bold Italic', 'BoldItalic', 'Bold Oblique']
     elif bold:
@@ -79,7 +58,6 @@ def _apply_variation(
         except (ValueError, OSError, AttributeError):
             pass
 
-    # Fallback to axis values (wght / ital are the two most common axes).
     try:
         axes: dict = {}
         if bold:
@@ -100,53 +78,37 @@ def _load_font(
     italic: bool = False,
 ) -> ImageFont.FreeTypeFont:
     """
-    Load a font by name and variant, falling back to Pillow's default.
+    Load a font by family name and variant.
 
-    Resolution order:
-    1. ImageFont.truetype(font_name) — works when the OS font registry has
-       already been initialised (e.g. after any native dialog on Windows).
-       _apply_variation is called so variable fonts select the right instance.
-    2. find_font_file(font_name) — file-stem prefix search in system font dirs.
-    3. Strip variant keywords from font_name (e.g. "Arial Bold" → base "Arial",
-       bold=True) and retry find_font_file with the cleaned base name + flags.
-    4. Pillow built-in default.
-
-    After every successful file load, _apply_variation is called so that
-    variable fonts (single file, multiple weights/styles) select the correct
-    named instance or axis position rather than always loading the default.
+    Font names may contain embedded variant words (e.g. "Arial Bold") — these
+    are stripped and merged with the explicit bold/italic flags before lookup.
+    Font files are located via the metadata-based map in font_utils, so lookup
+    is always by actual family/style name, never by filename pattern.
     """
-    # Parse variant keywords before any lookup so all steps benefit.
-    base_name, name_bold, name_italic = _split_font_name(font_name)
-    eff_bold   = bold   or name_bold
-    eff_italic = italic or name_italic
+    # Strip variant keywords from the name and merge with explicit flags.
+    words, base_words = font_name.split(), []
+    eff_bold, eff_italic = bold, italic
+    for w in words:
+        wl = w.lower()
+        if wl in _BOLD_WORDS:
+            eff_bold = True
+        elif wl in _ITALIC_WORDS:
+            eff_italic = True
+        else:
+            base_words.append(w)
+    base_name = ' '.join(base_words) if base_words else font_name
 
-    # 1. Direct OS/registry lookup
-    try:
-        font = ImageFont.truetype(font_name, size)
-        return _apply_variation(font, eff_bold, eff_italic)
-    except (OSError, IOError):
-        pass
-
-    # 2. File-stem search with name as-is
-    font_path = find_font_file(font_name, bold=bold, italic=italic)
-    if font_path:
-        try:
-            font = ImageFont.truetype(font_path, size)
-            return _apply_variation(font, eff_bold, eff_italic)
-        except (OSError, IOError):
-            pass
-
-    # 3. Parse variant keywords out of the name and retry with base name + flags
-    if base_name != font_name:
-        font_path = find_font_file(base_name, bold=eff_bold, italic=eff_italic)
-        if font_path:
+    # Look up the font file (tries font_name first, then base_name).
+    for name in dict.fromkeys([font_name, base_name]):   # deduplicated, ordered
+        path = find_font_file(name, bold=eff_bold, italic=eff_italic)
+        if path:
             try:
-                font = ImageFont.truetype(font_path, size)
-                return _apply_variation(font, eff_bold, eff_italic)
+                return _apply_variation(ImageFont.truetype(path, size),
+                                        eff_bold, eff_italic)
             except (OSError, IOError):
                 pass
 
-    # 4. Pillow built-in default
+    # Pillow built-in default
     try:
         return ImageFont.load_default(size=size)
     except TypeError:
