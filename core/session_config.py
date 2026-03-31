@@ -7,8 +7,6 @@ class TextConfig:
     font: str = "Arial"
     size: int = 60
     color: str = "#FFFFFF"
-    x_percent: float = 50.0
-    y_percent: float = 45.0
     line_height: int = 10   # extra pixel spacing between wrapped lines
 
 
@@ -23,19 +21,22 @@ class SessionConfig:
     override_duration: bool = False
     global_duration: float = 3.0
     global_gap: float = 0.5
+    block_x_percent: float = 50.0   # horizontal centre of the text block
+    block_y_percent: float = 50.0   # vertical centre of the text block
+    block_spacing: int = 20         # gap in pixels between primary and secondary text
     primary_text: TextConfig = field(
-        default_factory=lambda: TextConfig(size=60, y_percent=45.0)
+        default_factory=lambda: TextConfig(size=60)
     )
     secondary_text: TextConfig = field(
-        default_factory=lambda: TextConfig(size=48, y_percent=57.0)
+        default_factory=lambda: TextConfig(size=48)
     )
 
 
 def session_config_from_dict(data: dict) -> SessionConfig:
     """
     Build a SessionConfig from a plain dict.
-    Unknown or legacy keys (e.g. 'json_path') are silently ignored so that
-    old session files can still be opened without errors.
+    Unknown or legacy keys are silently ignored so that old session files
+    can still be opened without errors.
     """
     d = dict(data)
     d.pop('json_path', None)          # legacy field — no longer used

@@ -9,20 +9,19 @@
     "override_duration": false,
     "global_duration": 3.0,
     "global_gap": 0.5,
+    "block_x_percent": 50.0,
+    "block_y_percent": 50.0,
+    "block_spacing": 20,
     "primary_text": {
       "font": "Arial",
       "size": 60,
       "color": "#FFFFFF",
-      "x_percent": 50.0,
-      "y_percent": 45.0,
       "line_height": 10
     },
     "secondary_text": {
       "font": "Arial",
       "size": 48,
       "color": "#FFFFFF",
-      "x_percent": 50.0,
-      "y_percent": 57.0,
       "line_height": 10
     }
   },
