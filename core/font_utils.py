@@ -77,27 +77,8 @@ def _get_font_map() -> _FontMap:
     return _font_map
 
 
-def find_font_file(
-    family: str,
-    bold: bool = False,
-    italic: bool = False,
-) -> Optional[str]:
-    """
-    Return the path of the best-matching font file for the given family name
-    and variant flags.  Matching is done against font metadata, not filenames.
-
-    If no exact style is found but the family exists, the first available
-    style is returned so that _apply_variation() can select the correct
-    weight/style on variable fonts.
-
-    Returns None if the family is not found at all.
-    """
-    font_map = _get_font_map()
-    styles   = font_map.get(family.strip().lower())
-    if not styles:
-        return None
-
-    # Preferred style names in priority order
+def _find_style(styles: _FontStyles, bold: bool, italic: bool) -> str:
+    """Pick the best file path from a family's style dict."""
     if bold and italic:
         want = ['bold italic', 'bolditalic', 'bold oblique']
     elif bold:
@@ -114,6 +95,65 @@ def find_font_file(
     # No exact style match — return whatever is available and let
     # _apply_variation select the right instance (handles variable fonts).
     return next(iter(styles.values()))
+
+
+def find_font_file(
+    family: str,
+    bold: bool = False,
+    italic: bool = False,
+) -> Optional[str]:
+    """
+    Return the path of the best-matching font file for the given family name
+    and variant flags.  Matching is done against font metadata, not filenames.
+
+    If the family name is not found directly (e.g. "Candara Light"), the name
+    is progressively split so that trailing words are treated as a style
+    qualifier (e.g. family "Candara", style "Light").  When such a split
+    matches, the embedded style takes precedence over the bold/italic flags.
+
+    Returns None if the family is not found at all.
+    """
+    font_map = _get_font_map()
+    styles   = font_map.get(family.strip().lower())
+    if styles:
+        return _find_style(styles, bold, italic)
+
+    # The full name was not a known family.  Progressively strip trailing
+    # words and check if they name a style inside a shorter family name.
+    # E.g. "Candara Light" → family "candara", target style "light".
+    words = family.strip().split()
+    for split in range(len(words) - 1, 0, -1):
+        base_family = ' '.join(words[:split]).lower()
+        styles = font_map.get(base_family)
+        if not styles:
+            continue
+        # The trailing words become the target style.
+        target_style = ' '.join(words[split:]).lower()
+        if target_style in styles:
+            return styles[target_style]
+        # Also try without spaces (e.g. "Semi Bold" → "semibold").
+        target_joined = target_style.replace(' ', '')
+        if target_joined in styles:
+            return styles[target_joined]
+        # Try a compound style with bold/italic flags appended.
+        if bold and italic:
+            extras = [target_style + ' bold italic', target_style + ' bolditalic']
+        elif bold:
+            extras = [target_style + ' bold']
+        elif italic:
+            extras = [target_style + ' italic', target_style + ' oblique']
+        else:
+            extras = []
+        for e in extras:
+            if e in styles:
+                return styles[e]
+        # Found the family via split — pick the best partial match.
+        # Try substring match (e.g. "light" matches "light italic").
+        for s, p in styles.items():
+            if target_style in s or target_joined in s:
+                return p
+        # Last resort: return any style from this family.
+        return next(iter(styles.values()))
 
 
 def get_available_font_names() -> List[str]:

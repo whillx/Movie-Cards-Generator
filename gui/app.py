@@ -150,8 +150,8 @@ class App:
         config = self._build_config()
         img = render_card(card, config)
 
-        # Scale to fit within 960×540 while preserving aspect ratio
-        max_w, max_h = 960, 540
+        # Scale to fit within 1280*720 while preserving aspect ratio
+        max_w, max_h = 1280, 720
         scale = min(max_w / img.width, max_h / img.height)
         display_w = int(img.width * scale)
         display_h = int(img.height * scale)
