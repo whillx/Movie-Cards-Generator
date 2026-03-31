@@ -26,20 +26,56 @@ from core.utils import index_to_alpha
 
 # ── Font loading ──────────────────────────────────────────────────────────────
 
+# Variant keywords that may appear inside a font family name as listed by
+# tkinter's font.families() (e.g. "Arial Bold", "Times New Roman Italic").
+_BOLD_KEYWORDS   = {'bold', 'black', 'heavy', 'extrabold', 'demibold', 'semibold'}
+_ITALIC_KEYWORDS = {'italic', 'oblique', 'slanted'}
+
+
+def _split_font_name(font_name: str):
+    """
+    Split a font family name into (base_name, bold, italic).
+
+    e.g. "Arial Bold Italic" → ("Arial", True, True)
+         "Arial"             → ("Arial", False, False)
+    """
+    words, base, is_bold, is_italic = font_name.split(), [], False, False
+    for w in words:
+        wl = w.lower()
+        if wl in _BOLD_KEYWORDS:
+            is_bold = True
+        elif wl in _ITALIC_KEYWORDS:
+            is_italic = True
+        else:
+            base.append(w)
+    return (' '.join(base) if base else font_name), is_bold, is_italic
+
+
 def _load_font(
     font_name: str,
     size: int,
     bold: bool = False,
     italic: bool = False,
 ) -> ImageFont.FreeTypeFont:
-    """Load a font by name and variant, falling back to Pillow's default."""
-    # 1. Try direct path (already a file path)
+    """
+    Load a font by name and variant, falling back to Pillow's default.
+
+    Resolution order:
+    1. ImageFont.truetype(font_name) — works when the OS font registry has
+       already been initialised (e.g. after any native dialog on Windows).
+    2. find_font_file(font_name) — file-stem prefix search in system font dirs.
+    3. Strip variant keywords from font_name (e.g. "Arial Bold" → base "Arial",
+       bold=True) and retry find_font_file with the cleaned base name + flags.
+       This covers the case where step 1 hasn't been warmed up yet.
+    4. Pillow built-in default.
+    """
+    # 1. Direct OS/registry lookup
     try:
         return ImageFont.truetype(font_name, size)
     except (OSError, IOError):
         pass
 
-    # 2. Search system fonts with variant hints
+    # 2. File-stem search with name as-is
     font_path = find_font_file(font_name, bold=bold, italic=italic)
     if font_path:
         try:
@@ -47,7 +83,21 @@ def _load_font(
         except (OSError, IOError):
             pass
 
-    # 3. Pillow built-in default (no variant support)
+    # 3. Parse variant keywords out of the name and retry
+    base_name, name_bold, name_italic = _split_font_name(font_name)
+    if base_name != font_name:          # keywords were found and stripped
+        font_path = find_font_file(
+            base_name,
+            bold=bold or name_bold,
+            italic=italic or name_italic,
+        )
+        if font_path:
+            try:
+                return ImageFont.truetype(font_path, size)
+            except (OSError, IOError):
+                pass
+
+    # 4. Pillow built-in default
     try:
         return ImageFont.load_default(size=size)
     except TypeError:
