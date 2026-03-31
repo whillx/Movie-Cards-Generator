@@ -2,6 +2,15 @@
 
 A desktop tool for creating professional title cards for film productions — credits, opening titles, and more. Generates transparent PNG images and an FCPXML timeline ready for import into Final Cut Pro or compatible editors.
 
+>GUI for cards creation:
+>
+>![](image\ui.png)
+>
+>
+>Generated card image and the timeline in the editing software (Resolve)
+>
+>![](image\import.png)
+
 ## Features
 
 - **Card editor** — Add, edit, and delete cards with primary text (e.g. job title) and secondary text (e.g. name), with live treeview updates and multi-select
