@@ -4,11 +4,11 @@ A desktop tool for creating professional title cards for film productions — cr
 
 >GUI for cards creation:
 >
-![](.\image\ui.png)
+![demo image](image/ui.png)
 
 >Generated card image and the timeline in the editing software (Resolve):
 >
-![](.\image\import.png)
+![demo image](image/import.png)
 
 ## Features
 
