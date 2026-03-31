@@ -30,6 +30,7 @@ class CardsPanel(ttk.LabelFrame):
         self,
         parent,
         on_cards_changed: Optional[Callable[[List[Card]], None]] = None,
+        on_preview: Optional[Callable[[Card], None]] = None,
         **kwargs,
     ):
         super().__init__(parent, text="Cards", **kwargs)
@@ -37,6 +38,7 @@ class CardsPanel(ttk.LabelFrame):
         self._focused_index: int = -1      # card shown in the edit fields
         self._loading: bool = False        # suppress live-update trace while loading
         self._on_cards_changed = on_cards_changed
+        self._on_preview = on_preview
         self._build()
 
     # ------------------------------------------------------------------
@@ -130,6 +132,10 @@ class CardsPanel(ttk.LabelFrame):
         ttk.Button(btn_row, text="Clear", command=self._clear).pack(
             side='left', padx=(6, 0))
 
+        self._preview_btn = ttk.Button(
+            btn_row, text="Preview", command=self._preview_card, state='disabled')
+        self._preview_btn.pack(side='left', padx=(12, 0))
+
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
@@ -185,6 +191,9 @@ class CardsPanel(ttk.LabelFrame):
             self.tree.focus(item)
             self.tree.see(item)
 
+    def _set_preview_btn_visible(self, visible: bool):
+        self._preview_btn.configure(state='normal' if visible else 'disabled')
+
     # ------------------------------------------------------------------
     # Event handlers
     # ------------------------------------------------------------------
@@ -214,13 +223,17 @@ class CardsPanel(ttk.LabelFrame):
         """Load the focused item's data into the edit fields."""
         focused_iid = self.tree.focus()
         if not focused_iid:
+            self._set_preview_btn_visible(False)
             return
         children = self.tree.get_children()
         if focused_iid not in children:
+            self._set_preview_btn_visible(False)
             return
         idx = children.index(focused_iid)
         self._focused_index = idx
         self._set_fields(self._cards[idx])
+        single_selected = len(self.tree.selection()) == 1
+        self._set_preview_btn_visible(single_selected)
 
     def _add_card(self):
         """Append a new blank card, insert it into the treeview, and focus it."""
@@ -254,6 +267,12 @@ class CardsPanel(ttk.LabelFrame):
         else:
             self._focused_index = -1
             self._clear_fields()
+        self._set_preview_btn_visible(False)
+
+    def _preview_card(self):
+        """Invoke the on_preview callback with the currently focused card."""
+        if self._on_preview and 0 <= self._focused_index < len(self._cards):
+            self._on_preview(self._cards[self._focused_index])
 
     def _save(self):
         """Write ALL in-memory cards to the JSON file."""

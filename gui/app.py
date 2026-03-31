@@ -3,9 +3,11 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from PIL import Image, ImageTk
+
 from core.fcpxml_generator import generate_fcpxml
-from core.image_generator import generate_images
-from core.json_reader import load_session, save_session
+from core.image_generator import generate_images, render_card
+from core.json_reader import Card, load_session, save_session
 from core.session_config import SessionConfig
 from gui.cards_panel import CardsPanel
 from gui.settings_panel import SettingsPanel
@@ -51,7 +53,11 @@ class App:
         middle = ttk.PanedWindow(self.root, orient='horizontal')
         middle.pack(fill='both', expand=True, padx=8, pady=4)
 
-        self.cards_panel = CardsPanel(middle, on_cards_changed=self._on_cards_changed)
+        self.cards_panel = CardsPanel(
+            middle,
+            on_cards_changed=self._on_cards_changed,
+            on_preview=self._on_preview,
+        )
         middle.add(self.cards_panel, weight=1)
 
         self.settings_panel = SettingsPanel(
@@ -135,6 +141,37 @@ class App:
             self._status.set("Session saved.")
         except Exception as e:
             messagebox.showerror("Save Error", f"Could not save session:\n{e}")
+
+    # ------------------------------------------------------------------
+    # Preview
+    # ------------------------------------------------------------------
+
+    def _on_preview(self, card: Card):
+        config = self._build_config()
+        img = render_card(card, config)
+
+        # Scale to fit within 960×540 while preserving aspect ratio
+        max_w, max_h = 960, 540
+        scale = min(max_w / img.width, max_h / img.height)
+        display_w = int(img.width * scale)
+        display_h = int(img.height * scale)
+        img_resized = img.resize((display_w, display_h), Image.LANCZOS)
+
+        win = tk.Toplevel(self.root)
+        win.title("Card Preview")
+        win.configure(bg='black')
+        win.resizable(False, False)
+
+        photo = ImageTk.PhotoImage(img_resized)
+        label = tk.Label(win, image=photo, bg='black', bd=0)
+        label.image = photo  # prevent garbage collection
+        label.pack()
+
+        # Center the popup over the main window
+        win.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - display_w) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - display_h) // 2
+        win.geometry(f"{display_w}x{display_h}+{x}+{y}")
 
     # ------------------------------------------------------------------
     # Generation

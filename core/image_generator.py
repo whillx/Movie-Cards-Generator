@@ -63,6 +63,23 @@ def _draw_text_centered(
     )
 
 
+def render_card(card: Card, config: SessionConfig) -> Image.Image:
+    """Render a single card on a solid black background and return the PIL Image."""
+    width = config.resolution_width
+    height = config.resolution_height
+    img = Image.new('RGBA', (width, height), (0, 0, 0, 255))
+    draw = ImageDraw.Draw(img)
+
+    has_secondary = bool(card.secondary.strip())
+    if has_secondary:
+        _draw_text_centered(draw, card.primary, config.primary_text, width, height)
+        _draw_text_centered(draw, card.secondary, config.secondary_text, width, height)
+    else:
+        _draw_text_centered(draw, card.primary, config.primary_text, width, height,
+                             y_override=50.0)
+    return img
+
+
 def generate_images(cards: List[Card], config: SessionConfig, output_dir: str) -> List[str]:
     """Render each card as a transparent PNG and return a list of file paths."""
     cards_dir = os.path.join(output_dir, 'cards')
